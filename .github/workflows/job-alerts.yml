@@ -82,7 +82,9 @@ jobs:
             echo "::notice::Dry run — nothing will be sent and the database won't be written"
             python run.py --dry-run
           else
-            python run.py --no-seed
+            sed -i 's/^NOTIFY_PAUSE = .*/NOTIFY_PAUSE = 3/' jobbot/config.py
+            python run.py --no-seed --source konrad
+            python run.py --source experian
           fi
 
       - name: Save seen-jobs database
