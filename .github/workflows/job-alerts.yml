@@ -62,6 +62,7 @@ jobs:
       # saved even if the bot ends in an error.
       # ---------------------------------------------------------------
       - name: Restore seen-jobs database
+        if: false   # one-off resend: start from an empty database
         uses: actions/cache/restore@v6
         with:
           path: data/seen_jobs.db
@@ -81,7 +82,7 @@ jobs:
             echo "::notice::Dry run — nothing will be sent and the database won't be written"
             python run.py --dry-run
           else
-            python run.py
+            python run.py --no-seed
           fi
 
       - name: Save seen-jobs database
