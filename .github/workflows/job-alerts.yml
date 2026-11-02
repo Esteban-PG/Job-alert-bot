@@ -1,23 +1,29 @@
 name: Job alerts
 
 on:
-  schedule:
-    # Every 30 minutes, but at :07 and :37 and NOT at :00/:30, which is where
-    # everybody schedules and where GitHub's queue is deepest.
-    #
-    # Actions cron schedules are best-effort: under load GitHub delays the run
-    # and, if the delay eats the next slot, it **discards** it (it doesn't queue
-    # it or recover it). Measured over the first 34 runs with `*/30`: it ran 29%
-    # of what was scheduled, a median of 83 min between runs, a minimum of 59 min
-    # (it never actually ran every 30) and peaks of almost 4 h. Running on odd
-    # minutes is the only free lever that exists against this.
-    #
-    # For job postings the delay doesn't matter, and the dedupe prevents
-    # duplicates no matter when it runs. Frequency and cost: ~1440 runs/month,
-    # which on a private repo would just about fit in the Free plan's 2000
-    # min/month; on a public repo (this one) the minutes are free and unlimited.
-    - cron: "7,37 * * * *"
-  workflow_dispatch:        # "Run workflow" button for manual testing
+  # No `schedule:` trigger on purpose. The clock lives outside GitHub: an
+  # external cron (cron-job.org) calls the workflow_dispatch REST endpoint every
+  # 30 minutes:
+  #
+  #   POST /repos/Esteban-PG/Job-alert-bot/actions/workflows/job-alerts.yml/dispatches
+  #   {"ref": "main"}
+  #
+  # Why not Actions' own cron:
+  #
+  # 1. It's unreliable. Actions cron schedules are best-effort: under load
+  #    GitHub delays the run and, if the delay eats the next slot, it
+  #    **discards** it. Measured over the first 34 runs with `*/30`: it ran 29%
+  #    of what was scheduled, a median of 83 min between runs, and peaks of
+  #    almost 4 h — even after moving to the less congested :07/:37.
+  #
+  # 2. It gets switched off. In public repos GitHub disables scheduled workflows
+  #    after 60 days without repository activity. That happened on 2026-10-06
+  #    (60 days after the last commit) and the bot was silent for a month,
+  #    while every run had been green. That rule only applies to `schedule:`
+  #    triggers, so a workflow started by dispatch is never disabled.
+  #
+  # Each run takes ~1.5 min; ~1440 runs/month on a public repo are free.
+  workflow_dispatch:        # triggered by the external cron, or by hand
     inputs:
       dry_run:
         description: "Preview only — print what it would notify, send nothing, record nothing"

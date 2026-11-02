@@ -380,20 +380,32 @@ Three GitHub Actions caveats worth knowing:
   "it's a bit late": under load GitHub discards the slot instead of queueing it.
   Measured over this bot's first 34 runs with `*/30`, across 58 hours: **it ran
   29% of what was scheduled**, with a median of 83 min between runs, a minimum of
-  59 min (it never actually ran every 30) and peaks of almost 4 hours. That's why
-  the cron is `7,37 * * * *` and not `*/30`: `:00` and `:30` are the minutes
-  everybody schedules on and where the queue is deepest. For job postings the
-  delay is irrelevant — nobody fills a role in an hour — and the dedupe prevents
-  duplicates no matter when it runs.
-- Scheduled workflows **disable themselves** after 60 days without activity in
-  the repo. A commit every once in a while is enough, or use the alternative
-  below.
+  59 min (it never actually ran every 30) and peaks of almost 4 hours. Moving to
+  `7,37 * * * *` (off the crowded `:00`/`:30`) helped only a little.
+- Scheduled workflows **disable themselves** after 60 days without activity in a
+  public repo. This one did, on 2026-10-06, exactly 60 days after the last
+  commit: every run had been green, it just stopped starting, and the bot was
+  silent for a month. From the outside that looks identical to "no new postings".
 
-To change the frequency you edit one line of the workflow:
+Because of both, **the workflow has no `schedule:` trigger**. The clock lives
+outside GitHub: a free external cron ([cron-job.org](https://cron-job.org))
+calls the `workflow_dispatch` REST endpoint every 30 minutes with a
+fine-grained token scoped to this repo (Actions: read and write):
 
-```yaml
-- cron: "*/30 * * * *" # every 30 min · "0 * * * *" = hourly
+```http
+POST https://api.github.com/repos/Esteban-PG/Job-alert-bot/actions/workflows/job-alerts.yml/dispatches
+Authorization: Bearer <token>
+Accept: application/vnd.github+json
+X-GitHub-Api-Version: 2022-11-28
+
+{"ref": "main"}
 ```
+
+GitHub answers `204 No Content`. Dispatched runs start within seconds, and the
+60-day rule only applies to `schedule:` triggers, so nothing gets switched off.
+The trade-off is a dependency on the external service; a weekly check watches
+for gaps of more than a day between runs. Frequency is changed in cron-job.org,
+not in the repo.
 
 ### VPS with cron
 
